@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { getAllUsers } from '../services/firebaseService';
+import { getAllUsers, deleteUser } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 
 const AdminDashboardScreen = ({ navigation }) => {
@@ -26,6 +25,31 @@ const AdminDashboardScreen = ({ navigation }) => {
     setLoading(false);
   };
 
+  const handleDeleteUser = async (userId, userName) => {
+    Alert.alert(
+      'Confirm Delete',
+      `Are you sure you want to delete ${userName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true); // Show loading indicator while deleting
+            const result = await deleteUser(userId);
+            if (result.success) {
+              Alert.alert('Success', `${userName} deleted successfully.`);
+              loadUsers(); // Reload users after deletion
+            } else {
+              Alert.alert('Error', `Failed to delete ${userName}. ${result.message}`);
+              setLoading(false); // Hide loading indicator if deletion fails
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderUserItem = ({ item }) => (
     <View style={styles.userItem}>
       <View style={styles.userInfo}>
@@ -35,9 +59,19 @@ const AdminDashboardScreen = ({ navigation }) => {
           {item.role?.toUpperCase() || 'USER'}
         </Text>
       </View>
-      <Text style={styles.createdDate}>
-        {new Date(item.createdAt).toLocaleDateString()}
-      </Text>
+      <View style={styles.userActions}>
+        <Text style={styles.createdDate}>
+          {new Date(item.createdAt).toLocaleDateString()}
+        </Text>
+        {item.uid !== currentUser.uid && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDeleteUser(item.uid, item.name || item.displayName)}
+          >
+            <Icon name="delete" size={20} color="#fff" />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 
@@ -55,14 +89,14 @@ const AdminDashboardScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
           <Icon name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.title}>Admin Dashboard</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('CreateUser')}
         >
@@ -203,6 +237,17 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#666',
+  },
+  userActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minHeight: 60,
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
   },
 });
 

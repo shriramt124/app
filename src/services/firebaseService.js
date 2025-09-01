@@ -424,6 +424,21 @@ export const getUserById = async (userId) => {
   }
 };
 
+export const deleteUser = async (userId) => {
+  try {
+    // Delete user document from Firestore
+    await firestore().collection('users').doc(userId).delete();
+    
+    // Note: Deleting from Firebase Auth requires Admin SDK on server side
+    // For now, we only delete from Firestore
+    // The user will still be able to sign in but will need to recreate their profile
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 export const updateUserProfile = async (userId, userData) => {
   try {
     await firestore().collection('users').doc(userId).update({
