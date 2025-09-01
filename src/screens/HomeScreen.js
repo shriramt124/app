@@ -12,9 +12,7 @@ const HomeScreen = ({ navigation }) => {
   const [productGroups, setProductGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-
-  const isAdmin = currentUser?.role === 'admin';
+  const { currentUser, isAdmin } = useAuth();
 
   useEffect(() => {
     // Get current user info
@@ -23,14 +21,20 @@ const HomeScreen = ({ navigation }) => {
         try {
           const userDoc = await firestore().collection('users').doc(user.uid).get();
           if (userDoc.exists()) {
+            // Assuming the role is stored in the 'users' collection
             setCurrentUser({
               uid: user.uid,
               email: user.email,
               ...userDoc.data(),
             });
+          } else {
+            // If user document doesn't exist, ensure currentUser is null or handle accordingly
+            setCurrentUser(null);
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
+          // Optionally, alert the user or navigate to login
+          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);
@@ -152,6 +156,12 @@ const HomeScreen = ({ navigation }) => {
   const handleRefresh = () => {
     setRefreshing(true);
     // fetchProductGroups() logic would go here if not using subscription
+    // For subscription-based data, refreshing is handled by the listener itself.
+    // If you need to re-fetch manually, you might need to reset the subscription or fetch anew.
+    // For now, we'll just set refreshing to false after a short delay to simulate.
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1000);
   };
 
   return (
@@ -162,12 +172,12 @@ const HomeScreen = ({ navigation }) => {
           <View style={styles.titleContainer}>
             <Text style={styles.appName}>Stock Manager</Text>
             <Text style={styles.welcomeText}>Welcome, {currentUser?.email?.split('@')[0] || 'User'}</Text>
-            {isAdmin && (
+            {isAdmin() && (
               <Text style={styles.roleIndicator}>ADMIN</Text>
             )}
           </View>
           <View style={styles.headerActions}>
-            {isAdmin && (
+            {isAdmin() && (
               <TouchableOpacity 
                 style={styles.adminButton}
                 onPress={navigateToAdminDashboard}
@@ -182,6 +192,15 @@ const HomeScreen = ({ navigation }) => {
               <Icon name="logout" size={20} color="#8E92BC" />
             </TouchableOpacity>
           </View>
+        </View>
+
+        <View style={styles.userInfo}>
+          <Text style={styles.subtitle}>
+            Welcome, {currentUser?.displayName || currentUser?.name || currentUser?.email}
+          </Text>
+          <Text style={styles.roleText}>
+            Role: {isAdmin() ? 'Administrator' : 'User'}
+          </Text>
         </View>
 
         {/* Stats Cards */}
@@ -203,7 +222,7 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {/* Admin Actions */}
-        {isAdmin && (
+        {isAdmin() && (
           <View style={styles.adminActionsContainer}>
             <Text style={styles.adminActionsTitle}>Admin Actions</Text>
             <View style={styles.adminButtonsRow}>
@@ -244,7 +263,7 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.emptyDescription}>
                   Start by creating your first product category to organize your inventory
                 </Text>
-                {isAdmin && (
+                {isAdmin() && (
                   <TouchableOpacity 
                     style={styles.createButton}
                     onPress={() => navigation.navigate('ProductGroup')}
@@ -277,7 +296,7 @@ const HomeScreen = ({ navigation }) => {
           )}
 
           {/* Floating Action Button */}
-          {isAdmin && (
+          {isAdmin() && (
             <TouchableOpacity 
               style={styles.fab}
               onPress={() => navigation.navigate('ProductGroup')}
@@ -341,6 +360,7 @@ const styles = StyleSheet.create({
   },
   adminButton: {
     padding: 8,
+    marginRight: 8,
   },
   logoutButton: {
     padding: 12,
@@ -533,6 +553,16 @@ const styles = StyleSheet.create({
   adminActionText: {
     fontSize: 12,
     color: '#8E92BC',
+    marginTop: 4,
+  },
+  userInfo: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  roleText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
     marginTop: 4,
   },
 });

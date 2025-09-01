@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { subscribeToProductById } from '../services/firebaseService';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import { useAuth } from '../context/AuthContext'; // Added import for AuthContext
 
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const { isAdmin } = useAuth(); // Assuming isAdmin function is available from AuthContext
 
   useEffect(() => {
     // Get current user info
@@ -93,33 +95,28 @@ const ProductDetailScreen = ({ route, navigation }) => {
           )}
 
           <View style={styles.actionsContainer}>
-            {currentUser?.role === 'admin' ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.updateButton]}
-                  onPress={() => navigation.navigate('StockUpdate', { productId: product.id, productName: product.name })}
-                >
-                  <Icon name="edit" size={20} color="#fff" style={styles.actionIcon} />
-                  <Text style={styles.actionText}>Update Stock</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: '#4CAF50', marginLeft: 10 }]}
-                  onPress={() => navigation.navigate('StockHistory', { productId: product.id, productName: product.name })}
-                >
-                  <Icon name="history" size={20} color="#fff" style={styles.actionIcon} />
-                  <Text style={styles.actionText}>View History</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
+            {isAdmin() && ( // Conditionally render update button for admin
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-                onPress={() => navigation.navigate('StockHistory', { productId: product.id, productName: product.name })}
+                style={styles.updateButton}
+                onPress={() => navigation.navigate('StockUpdate', {
+                  productId: product.id,
+                  productName: product.name,
+                  currentStock: product.stock,
+                  currentCartons: product.cartons || 0,
+                })}
               >
-                <Icon name="history" size={20} color="#fff" style={styles.actionIcon} />
-                <Text style={styles.actionText}>View History</Text>
+                <Icon name="edit" size={20} color="#fff" style={styles.actionIcon} />
+                <Text style={styles.actionText}>Update Stock</Text>
               </TouchableOpacity>
             )}
+
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#4CAF50', marginLeft: isAdmin() ? 10 : 0 }]}
+              onPress={() => navigation.navigate('StockHistory', { productId: product.id, productName: product.name })}
+            >
+              <Icon name="history" size={20} color="#fff" style={styles.actionIcon} />
+              <Text style={styles.actionText}>View History</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

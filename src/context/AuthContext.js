@@ -20,16 +20,29 @@ export const AuthProvider = ({ children }) => {
           // Get additional user data from Firestore
           const userDoc = await db.collection('users').doc(user.uid).get();
           if (userDoc.exists()) {
+            const userData = userDoc.data();
             setCurrentUser({
               uid: user.uid,
               email: user.email,
-              ...userDoc.data(),
+              displayName: user.displayName,
+              ...userData,
             });
           } else {
+            // If user document doesn't exist, create one with default role
+            const defaultUserData = {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email,
+              role: 'user', // Default role
+              createdAt: new Date().toISOString(),
+            };
+            
+            await db.collection('users').doc(user.uid).set(defaultUserData);
             setCurrentUser({
               uid: user.uid,
               email: user.email,
-              role: 'user', // Default role
+              displayName: user.displayName,
+              ...defaultUserData,
             });
           }
         } catch (error) {
@@ -37,6 +50,8 @@ export const AuthProvider = ({ children }) => {
           setCurrentUser({
             uid: user.uid,
             email: user.email,
+            displayName: user.displayName,
+            role: 'user',
           });
         }
       } else {
@@ -50,9 +65,19 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  const isAdmin = () => {
+    return currentUser && currentUser.role === 'admin';
+  };
+
+  const isUser = () => {
+    return currentUser && currentUser.role === 'user';
+  };
+
   const value = {
     currentUser,
     loading,
+    isAdmin,
+    isUser,
   };
 
   return (

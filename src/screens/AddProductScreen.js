@@ -1,11 +1,11 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Image, PermissionsAndroid, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from '@react-native-firebase/firestore';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { useAuth } from '../context/AuthContext';
 
 const AddProductScreen = ({ route, navigation }) => {
   const { groupId, groupName } = route.params;
@@ -17,6 +17,7 @@ const AddProductScreen = ({ route, navigation }) => {
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const { isAdmin } = useAuth();
 
   const requestStoragePermission = async () => {
     if (Platform.OS === 'android') {
@@ -94,7 +95,7 @@ const AddProductScreen = ({ route, navigation }) => {
       };
 
       await firestore().collection('products').add(productData);
-      
+
       Alert.alert('Success', 'Product added successfully!', [
         {
           text: 'OK',
@@ -110,6 +111,27 @@ const AddProductScreen = ({ route, navigation }) => {
   };
 
   const unitOptions = ['pcs', 'kg', 'grams', 'liters', 'ml', 'boxes', 'sets'];
+
+  useEffect(() => {
+    // Check if user is admin
+    if (!isAdmin()) {
+      Alert.alert(
+        'Access Denied',
+        'Only administrators can add products.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.goBack(),
+          },
+        ]
+      );
+      return;
+    }
+
+    // Placeholder for loading product groups if needed in the future
+    // loadProductGroups(); 
+  }, [isAdmin, navigation]);
+
 
   return (
     <View style={styles.container}>
@@ -128,7 +150,7 @@ const AddProductScreen = ({ route, navigation }) => {
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-            
+
             {/* Image Selection Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Product Image</Text>
@@ -153,7 +175,7 @@ const AddProductScreen = ({ route, navigation }) => {
             {/* Product Information Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Product Information</Text>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Product Name *</Text>
                 <View style={styles.inputContainer}>
