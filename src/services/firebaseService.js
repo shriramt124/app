@@ -124,9 +124,10 @@ export const getProductGroups = async () => {
         ...doc.data(),
       });
     });
-    return { success: true, groups };
+    return groups;
   } catch (error) {
-    return { success: false, error: error.message };
+    console.error('Error getting product groups:', error);
+    return [];
   }
 };
 
@@ -194,6 +195,17 @@ export const getProductById = async (productId) => {
     }
   } catch (error) {
     return { success: false, error: error.message };
+  }
+};
+
+// Get total count of all products
+export const getTotalProducts = async () => {
+  try {
+    const querySnapshot = await firestore().collection('products').get();
+    return querySnapshot.size;
+  } catch (error) {
+    console.error('Error getting total products:', error);
+    return 0;
   }
 };
 
