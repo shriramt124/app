@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { subscribeToProducts } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
-
+import auth from '@react-native-firebase/auth';
 const ProductListScreen = ({ route, navigation }) => {
   const { groupId, groupName } = route.params;
   const [products, setProducts] = useState([]);
