@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Image, PermissionsAndroid, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -127,9 +128,6 @@ const AddProductScreen = ({ route, navigation }) => {
       );
       return;
     }
-
-    // Placeholder for loading product groups if needed in the future
-    // loadProductGroups(); 
   }, [isAdmin, navigation]);
 
 

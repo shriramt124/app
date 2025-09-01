@@ -1,22 +1,26 @@
+
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { subscribeToProducts } from '../services/firebaseService';
-import { useAuth } from '../context/AuthContext';
+import LinearGradient from 'react-native-linear-gradient';
+import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
+import { subscribeToProducts, deleteProduct, checkUserRole } from '../services/firebaseService';
+import { useAuth } from '../context/AuthContext';
+
 const ProductListScreen = ({ route, navigation }) => {
   const { groupId, groupName } = route.params;
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false); // State to track admin role
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
-  const { user } = useAuth(); // Get user from AuthContext
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
-    // Get current user info
+    // Get current user info and check admin role
     const unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
       if (user) {
         try {
@@ -30,7 +34,7 @@ const ProductListScreen = ({ route, navigation }) => {
             // Check admin role once user data is available
             const result = await checkUserRole(user.uid);
             if (result.success) {
-              setIsAdmin(result.role === 'admin');
+              setIsAdminUser(result.role === 'admin');
             }
           }
         } catch (error) {
@@ -49,21 +53,7 @@ const ProductListScreen = ({ route, navigation }) => {
       unsubscribeAuth();
       unsubscribe();
     };
-  }, [groupId, user]); // Depend on user to re-check role if auth state changes
-
-  // Function to check user role
-  const checkUserRole = async (userId) => {
-    try {
-      const userDoc = await firestore().collection('users').doc(userId).get();
-      if (userDoc.exists()) {
-        return { success: true, role: userDoc.data().role };
-      }
-      return { success: false, role: null };
-    } catch (error) {
-      console.error('Error checking user role:', error);
-      return { success: false, role: null };
-    }
-  };
+  }, [groupId, user]);
 
   const handleDeleteProduct = async (productId) => {
     Alert.alert(
@@ -159,7 +149,7 @@ const ProductListScreen = ({ route, navigation }) => {
 
           {/* Admin Actions */}
           <View style={styles.productActions}>
-            {isAdmin && (
+            {(isAdmin() || isAdminUser) && (
               <>
                 <TouchableOpacity 
                   style={styles.updateStockButton}
@@ -201,7 +191,7 @@ const ProductListScreen = ({ route, navigation }) => {
             <Text style={styles.headerTitle}>{groupName}</Text>
             <Text style={styles.headerSubtitle}>{products.length} products</Text>
           </View>
-          {isAdmin ? (
+          {(isAdmin() || isAdminUser) ? (
             <TouchableOpacity 
               style={styles.addButton}
               onPress={() => navigation.navigate('AddProduct', { groupId, groupName })}
@@ -230,7 +220,7 @@ const ProductListScreen = ({ route, navigation }) => {
                 <Text style={styles.emptyDescription}>
                   Add your first product to get started with inventory management
                 </Text>
-                {isAdmin && (
+                {(isAdmin() || isAdminUser) && (
                   <TouchableOpacity 
                     style={styles.addFirstButton}
                     onPress={() => navigation.navigate('AddProduct', { groupId, groupName })}
@@ -259,7 +249,7 @@ const ProductListScreen = ({ route, navigation }) => {
           )}
 
           {/* Floating Action Button (Add Product) - Visible only for Admin */}
-          {isAdmin && (
+          {(isAdmin() || isAdminUser) && (
             <TouchableOpacity 
               style={styles.fab}
               onPress={() => navigation.navigate('AddProduct', { groupId, groupName })}

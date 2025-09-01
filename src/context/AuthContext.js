@@ -1,98 +1,200 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 
 // Create the context
 const AuthContext = createContext();
 
+// Custom hook to use the auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
 // Provider component
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null); // Primary user state
+  const [currentUser, setCurrentUser] = useState(null); // This seems redundant with 'user' based on the edit
   const [loading, setLoading] = useState(true);
-  const db = firestore();
+  const [userRole, setUserRole] = useState(null); // New state for role
 
   useEffect(() => {
     // Subscribe to auth state changes
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      if (user) {
+    const unsubscribe = auth().onAuthStateChanged(async (authUser) => {
+      if (authUser) {
         // User is signed in
-        console.log('Auth state changed - User signed in:', user.email);
         try {
           // Get additional user data from Firestore
-          const userDoc = await db.collection('users').doc(user.uid).get();
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            console.log('User data from Firestore:', userData);
-            const userWithData = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              ...userData,
+          const userDoc = await firestore().collection('users').doc(authUser.uid).get();
+          if (userDoc.exists) {
+            const userData = {
+              uid: authUser.uid,
+              email: authUser.email,
+              ...userDoc.data(),
             };
-            setCurrentUser(userWithData);
-            console.log('Current user set to:', userWithData);
+            setUser(userData); // Set primary user state
+            setCurrentUser(userData); // Keep original name for compatibility if needed elsewhere
+            setUserRole(userData.role); // Set the user role
           } else {
-            console.log('User document does not exist, creating default user');
             // If user document doesn't exist, create one with default role
-            // Check if this is the admin email
-            const isAdminEmail = user.email === 'shriramt.124@gmail.com';
             const defaultUserData = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName || user.email,
-              name: isAdminEmail ? 'Administrator' : (user.displayName || user.email),
-              role: isAdminEmail ? 'admin' : 'user',
+              uid: authUser.uid,
+              email: authUser.email,
+              name: authUser.displayName || 'User', // Use displayName or default
+              role: 'user', // Default role
               createdAt: new Date().toISOString(),
             };
-            
-            await db.collection('users').doc(user.uid).set(defaultUserData);
-            const userWithData = {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              ...defaultUserData,
-            };
-            setCurrentUser(userWithData);
-            console.log('Default user created and set:', userWithData);
+            await firestore().collection('users').doc(authUser.uid).set(defaultUserData);
+            setUser(defaultUserData); // Set primary user state
+            setCurrentUser(defaultUserData); // Keep original name
+            setUserRole('user'); // Set the user role
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
-          const fallbackUser = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            role: user.email === 'shriramt.124@gmail.com' ? 'admin' : 'user',
-          };
-          setCurrentUser(fallbackUser);
-          console.log('Fallback user set:', fallbackUser);
+          // Fallback to null if error occurs
+          setUser(null);
+          setCurrentUser(null);
+          setUserRole(null);
         }
       } else {
         // User is signed out
-        console.log('Auth state changed - User signed out');
+        setUser(null);
         setCurrentUser(null);
+        setUserRole(null);
+      }
+      setLoading(false); // Set loading to false once auth state is determined
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+
+  // Function to check if the current user is an admin
+  const isAdmin = () => {
+    return userRole === 'admin';
+  };
+
+  // Logout function
+  const logout = async () => {
+    try {
+      await auth().signOut();
+      setUser(null);
+      setCurrentUser(null);
+      setUserRole(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error; // Re-throw the error to be handled by the caller
+    }
+  };
+
+  // Context value
+  const value = {
+    user, // Exporting the primary user state
+    currentUser, // Keeping for potential backward compatibility, though 'user' is preferred
+    userRole, // Exporting the user role
+    loading,
+    isAdmin, // Exporting the isAdmin check
+    logout, // Exporting the logout function
+    // Removed setCurrentUser from context value as it's managed internally and 'setUser' is preferred
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children} {/* Render children only when loading is false */}
+    </AuthContext.Provider>
+  );
+};
+```import React, { createContext, useContext, useState, useEffect } from 'react';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
+const AuthContext = createContext();
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async (authUser) => {
+      if (authUser) {
+        try {
+          const userDoc = await firestore().collection('users').doc(authUser.uid).get();
+          if (userDoc.exists) {
+            const userData = {
+              uid: authUser.uid,
+              email: authUser.email,
+              ...userDoc.data(),
+            };
+            setUser(userData);
+            setCurrentUser(userData);
+            setUserRole(userData.role);
+          } else {
+            const newUserData = {
+              uid: authUser.uid,
+              email: authUser.email,
+              name: authUser.displayName || 'User',
+              role: 'user',
+              createdAt: new Date().toISOString(),
+            };
+            await firestore().collection('users').doc(authUser.uid).set(newUserData);
+            setUser(newUserData);
+            setCurrentUser(newUserData);
+            setUserRole('user');
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          setUser(null);
+          setCurrentUser(null);
+          setUserRole(null);
+        }
+      } else {
+        setUser(null);
+        setCurrentUser(null);
+        setUserRole(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription
-    return () => unsubscribe();
+    return unsubscribe;
   }, []);
 
   const isAdmin = () => {
-    const result = currentUser && currentUser.role === 'admin';
-    console.log('isAdmin check:', { currentUser: currentUser?.email, role: currentUser?.role, result });
-    return result;
+    return userRole === 'admin';
   };
 
-  const isUser = () => {
-    return currentUser && currentUser.role === 'user';
+  const logout = async () => {
+    try {
+      await auth().signOut();
+      setUser(null);
+      setCurrentUser(null);
+      setUserRole(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
   const value = {
+    user,
     currentUser,
+    userRole,
     loading,
     isAdmin,
-    isUser,
+    logout,
+    setCurrentUser, 
   };
 
   return (
@@ -100,9 +202,4 @@ export const AuthProvider = ({ children }) => {
       {!loading && children}
     </AuthContext.Provider>
   );
-};
-
-// Custom hook to use the auth context
-export const useAuth = () => {
-  return useContext(AuthContext);
 };

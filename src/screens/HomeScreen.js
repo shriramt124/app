@@ -1,77 +1,58 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, Dimensions, ScrollView } from 'react-native';
+
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import { getProductGroups, getTotalProducts } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
-import { subscribeToProductGroups } from '../services/firebaseService';
-
-
-const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
   const [productGroups, setProductGroups] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser, isAdmin, logout } = useAuth();
 
   useEffect(() => {
-    const unsubscribe = subscribeToProductGroups((groups) => {
-      setProductGroups(groups);
-      setLoading(false);
-      setRefreshing(false);
-    });
-
-    return () => {
-      unsubscribe();
-    };
+    loadData();
   }, []);
 
-  const subscribeToProductGroups = (callback) => {
+  const loadData = async () => {
     setLoading(true);
-    return firestore().collection('productGroups').onSnapshot((querySnapshot) => {
-      const groups = [];
-      querySnapshot.forEach((doc) => {
-        groups.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
-      callback(groups);
-    }, (error) => {
-      console.error('Error fetching product groups:', error);
-      Alert.alert('Error', 'Failed to load product groups');
+    try {
+      const [groups, total] = await Promise.all([
+        getProductGroups(),
+        getTotalProducts(),
+      ]);
+      setProductGroups(groups);
+      setTotalProducts(total);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data');
+    } finally {
       setLoading(false);
-      setRefreshing(false);
-    });
+    }
   };
 
   const handleLogout = async () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      'Logout',
+      'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Sign Out',
-          style: 'destructive',
+          text: 'Logout',
           onPress: async () => {
             try {
-              await auth().signOut();
+              await logout();
               navigation.replace('Login');
             } catch (error) {
-              Alert.alert('Error', error.message);
+              Alert.alert('Error', 'Failed to logout');
             }
-          }
-        }
+          },
+        },
       ]
     );
-  };
-
-  const navigateToProductGroups = () => {
-    navigation.navigate('ProductGroup');
   };
 
   const navigateToAdminDashboard = () => {
@@ -79,66 +60,49 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const navigateToAddProduct = () => {
-    navigation.navigate('AddProduct');
+    if (productGroups.length === 0) {
+      Alert.alert(
+        'No Product Groups',
+        'Please create a product group first before adding products.',
+        [
+          {
+            text: 'Create Group',
+            onPress: () => navigation.navigate('ProductGroup'),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    
+    navigation.navigate('ProductGroup');
   };
 
-  const getGroupIcon = (groupName) => {
-    const name = groupName.toLowerCase();
-    if (name.includes('cook') || name.includes('utensil')) return 'restaurant';
-    if (name.includes('steel') || name.includes('metal')) return 'build';
-    if (name.includes('gift') || name.includes('set')) return 'card-giftcard';
-    if (name.includes('hot') || name.includes('pot')) return 'local-fire-department';
-    return 'category';
-  };
-
-  const getGroupColor = (index) => {
-    const colors = [
-      ['#4F46E5', '#7C3AED'],
-      ['#059669', '#10B981'],
-      ['#DC2626', '#EF4444'],
-      ['#D97706', '#F59E0B'],
-      ['#7C2D12', '#EA580C'],
-      ['#1E40AF', '#3B82F6'],
-    ];
-    return colors[index % colors.length];
-  };
-
-  const renderItem = ({ item, index }) => (
-    <TouchableOpacity 
-      style={styles.categoryCard}
-      onPress={() => navigation.navigate('ProductList', { groupId: item.id, groupName: item.name })}
+  const renderGroupItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.groupCard}
+      onPress={() => navigation.navigate('ProductList', { 
+        groupId: item.id, 
+        groupName: item.name 
+      })}
       activeOpacity={0.9}
     >
-      <LinearGradient
-        colors={getGroupColor(index)}
-        style={styles.categoryCardGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.categoryIconContainer}>
-          <Icon name={getGroupIcon(item.name)} size={28} color="#fff" />
+      <View style={styles.groupCardHeader}>
+        <View style={styles.groupIconContainer}>
+          <Icon name="category" size={24} color="#4F46E5" />
         </View>
-        <Text style={styles.categoryTitle} numberOfLines={2}>{item.name}</Text>
-        <Text style={styles.categoryDescription} numberOfLines={2}>
-          {item.description || 'Product category'}
-        </Text>
-        <View style={styles.categoryArrow}>
-          <Icon name="arrow-forward" size={16} color="rgba(255,255,255,0.8)" />
+        <View style={styles.groupCardContent}>
+          <Text style={styles.groupName} numberOfLines={1}>{item.name}</Text>
+          {item.description && (
+            <Text style={styles.groupDescription} numberOfLines={2}>
+              {item.description}
+            </Text>
+          )}
         </View>
-      </LinearGradient>
+        <Icon name="chevron-right" size={24} color="#8E92BC" />
+      </View>
     </TouchableOpacity>
   );
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    // fetchProductGroups() logic would go here if not using subscription
-    // For subscription-based data, refreshing is handled by the listener itself.
-    // If you need to re-fetch manually, you might need to reset the subscription or fetch anew.
-    // For now, we'll just set refreshing to false after a short delay to simulate.
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  };
 
   return (
     <View style={styles.container}>
@@ -147,39 +111,26 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <View style={styles.titleContainer}>
             <Text style={styles.appName}>Stock Manager</Text>
-            <Text style={styles.welcomeText}>Welcome, {currentUser?.email?.split('@')[0] || 'User'}</Text>
+            <Text style={styles.welcomeText}>
+              Welcome, {currentUser?.name || currentUser?.email || 'User'}
+            </Text>
             {isAdmin() && (
-              <Text style={styles.roleIndicator}>ADMIN</Text>
+              <Text style={styles.roleIndicator}>● ADMIN</Text>
             )}
           </View>
           <View style={styles.headerActions}>
             {isAdmin() && (
-              <TouchableOpacity 
-                style={styles.adminButton}
-                onPress={navigateToAdminDashboard}
-              >
-                <Icon name="admin-panel-settings" size={24} color="#fff" />
+              <TouchableOpacity style={styles.adminButton} onPress={navigateToAdminDashboard}>
+                <Icon name="admin-panel-settings" size={24} color="#4a80f5" />
               </TouchableOpacity>
             )}
-            <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Icon name="logout" size={20} color="#8E92BC" />
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Icon name="logout" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.userInfo}>
-          <Text style={styles.subtitle}>
-            Welcome, {currentUser?.displayName || currentUser?.name || currentUser?.email?.split('@')[0] || 'User'}
-          </Text>
-          <Text style={styles.roleText}>
-            Role: {isAdmin() ? 'Administrator' : 'User'}
-          </Text>
-        </View>
-
-        {/* Stats Cards */}
+        {/* Stats Section */}
         <View style={styles.statsContainer}>
           <View style={styles.statsCard}>
             <LinearGradient
@@ -188,10 +139,10 @@ const HomeScreen = ({ navigation }) => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Icon name="category" size={24} color="#fff" />
+              <Icon name="inventory" size={32} color="#fff" />
               <View style={styles.statsContent}>
-                <Text style={styles.statsNumber}>{productGroups.length}</Text>
-                <Text style={styles.statsLabel}>Categories</Text>
+                <Text style={styles.statsNumber}>{totalProducts}</Text>
+                <Text style={styles.statsLabel}>Total Products</Text>
               </View>
             </LinearGradient>
           </View>
@@ -226,32 +177,33 @@ const HomeScreen = ({ navigation }) => {
           </View>
 
           {loading ? (
-            <View style={styles.emptyContainer}>
-              <Text>Loading...</Text>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4F46E5" />
+              <Text style={styles.loadingText}>Loading categories...</Text>
             </View>
           ) : productGroups.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyCard}>
                 <View style={styles.emptyIconContainer}>
-                  <Icon name="inventory" size={48} color="#8E92BC" />
+                  <Icon name="category" size={48} color="#8E92BC" />
                 </View>
-                <Text style={styles.emptyTitle}>No Categories Yet</Text>
+                <Text style={styles.emptyTitle}>No Categories Found</Text>
                 <Text style={styles.emptyDescription}>
-                  Start by creating your first product category to organize your inventory
+                  Create your first product category to get started
                 </Text>
                 {isAdmin() && (
                   <TouchableOpacity 
-                    style={styles.createButton}
+                    style={styles.createFirstButton}
                     onPress={() => navigation.navigate('ProductGroup')}
                   >
                     <LinearGradient
                       colors={['#4F46E5', '#7C3AED']}
-                      style={styles.createButtonGradient}
+                      style={styles.createFirstButtonGradient}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     >
                       <Icon name="add" size={18} color="#fff" />
-                      <Text style={styles.createButtonText}>Create Category</Text>
+                      <Text style={styles.createFirstButtonText}>Create Category</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
@@ -260,31 +212,11 @@ const HomeScreen = ({ navigation }) => {
           ) : (
             <FlatList
               data={productGroups}
-              renderItem={renderItem}
+              renderItem={renderGroupItem}
               keyExtractor={(item) => item.id}
-              numColumns={2}
-              contentContainerStyle={styles.categoriesGrid}
               showsVerticalScrollIndicator={false}
-              columnWrapperStyle={styles.categoriesRow}
-              onRefresh={handleRefresh}
-              refreshing={refreshing}
+              contentContainerStyle={styles.groupsList}
             />
-          )}
-
-          {/* Floating Action Button */}
-          {isAdmin() && (
-            <TouchableOpacity 
-              style={styles.fab}
-              onPress={() => navigation.navigate('ProductGroup')}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={['#4F46E5', '#7C3AED']}
-                style={styles.fabGradient}
-              >
-                <Icon name="add" size={24} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
           )}
         </View>
       </SafeAreaView>
@@ -374,17 +306,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255,255,255,0.9)',
   },
+  adminActionsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  adminActionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2E3A59',
+    marginBottom: 12,
+  },
+  adminButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  adminActionButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  adminActionText: {
+    fontSize: 12,
+    color: '#4a80f5',
+    marginTop: 4,
+    fontWeight: '500',
+  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 20,
   },
   sectionHeader: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '600',
     color: '#2E3A59',
   },
   sectionSubtitle: {
@@ -392,51 +353,20 @@ const styles = StyleSheet.create({
     color: '#8E92BC',
     marginTop: 4,
   },
-  categoriesGrid: {
-    paddingBottom: 100,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  categoriesRow: {
-    justifyContent: 'space-between',
-  },
-  categoryCard: {
-    width: (width - 50) / 2,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  categoryCardGradient: {
-    padding: 20,
-    height: 140,
-    justifyContent: 'space-between',
-  },
-  categoryIconContainer: {
-    alignSelf: 'flex-start',
-  },
-  categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 8,
-  },
-  categoryDescription: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 4,
-  },
-  categoryArrow: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
+  loadingText: {
+    marginTop: 16,
+    fontSize: 14,
+    color: '#8E92BC',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
   },
   emptyCard: {
     backgroundColor: '#fff',
@@ -472,73 +402,60 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 20,
   },
-  createButton: {
+  createFirstButton: {
     borderRadius: 12,
     overflow: 'hidden',
   },
-  createButtonGradient: {
+  createFirstButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  createButtonText: {
+  createFirstButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 0,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    elevation: 6,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+  groupsList: {
+    paddingBottom: 20,
   },
-  fabGradient: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  groupCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  groupCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  groupIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  adminActionsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 16,
+  groupCardContent: {
+    flex: 1,
+    marginLeft: 16,
   },
-  adminActionsTitle: {
+  groupName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2E3A59',
-    marginBottom: 12,
   },
-  adminButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  adminActionButton: {
-    alignItems: 'center',
-  },
-  adminActionText: {
-    fontSize: 12,
-    color: '#8E92BC',
-    marginTop: 4,
-  },
-  userInfo: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  roleText: {
+  groupDescription: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '600',
+    color: '#8E92BC',
     marginTop: 4,
   },
 });
