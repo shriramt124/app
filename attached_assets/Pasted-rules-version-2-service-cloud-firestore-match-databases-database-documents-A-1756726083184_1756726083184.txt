@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read access to authenticated users
+    match /{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Allow users to read their own data
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow users to create their own document (for initial admin setup)
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admins to create other users and update user data
+      allow write: if request.auth != null && 
+        (request.auth.uid == userId || 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+    
+    // Product groups - admin only for write, everyone can read
+    match /productGroups/{groupId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Products - admin only for write, everyone can read
+    match /products/{productId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Stock history - admin only for write, everyone can read
+    match /stockHistory/{historyId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
