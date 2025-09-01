@@ -1,0 +1,23 @@
+modules = ["nodejs-18", "ruby-3.2", "swift-5.8"]
+run = "npm run start"
+
+[nix]
+channel = "stable-25_05"
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+
+[workflows]
+runButton = "Start React Native"
+
+[[workflows.workflow]]
+name = "Start React Native"
+author = 46656253
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx react-native start --reset-cache"
+
+[agent]
+expertMode = true

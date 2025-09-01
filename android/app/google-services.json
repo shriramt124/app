@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "666062081284",
+    "project_id": "stock-maintenance-app",
+    "storage_bucket": "stock-maintenance-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:666062081284:android:b0b2531db9df8831729451",
+        "android_client_info": {
+          "package_name": "com.ytreactnative"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "666062081284-vjrscrecv54p9ho51cg0if92clgr168q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ytreactnative",
+            "certificate_hash": "defdf791db9395de3a7ccbe7b953975c6b98f5ba"
+          }
+        },
+        {
+          "client_id": "666062081284-gra8sgmg1em9uuletstafh2hr4snlshv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBusFRsBvjgNxXORmYTdkjPUST8rZcxGCg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "666062081284-gra8sgmg1em9uuletstafh2hr4snlshv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
