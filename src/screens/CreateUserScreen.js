@@ -43,15 +43,12 @@ const CreateUserScreen = ({ navigation }) => {
         // Re-login as admin since createUserByAdmin signs out
         Alert.alert(
           'Success', 
-          `User created successfully! You need to login again as admin.`,
+          `User created successfully!`,
           [
             {
               text: 'OK',
               onPress: () => {
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
+                navigation.goBack();
               },
             },
           ]

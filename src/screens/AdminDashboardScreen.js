@@ -63,7 +63,7 @@ const AdminDashboardScreen = ({ navigation }) => {
         <Text style={styles.createdDate}>
           {new Date(item.createdAt).toLocaleDateString()}
         </Text>
-        {item.uid !== currentUser.uid && (
+        {currentUser && item.uid !== currentUser.uid && (
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteUser(item.uid, item.name || item.displayName)}
