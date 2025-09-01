@@ -6,6 +6,7 @@ import firestore from '@react-native-firebase/firestore';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import LinearGradient from 'react-native-linear-gradient';
 import { useAuth } from '../context/AuthContext';
+import { subscribeToProductGroups } from '../services/firebaseService';
 
 
 const { width } = Dimensions.get('window');
@@ -17,32 +18,6 @@ const HomeScreen = ({ navigation }) => {
   const { currentUser, isAdmin } = useAuth();
 
   useEffect(() => {
-    // Get current user info
-    const unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
-      if (user) {
-        try {
-          const userDoc = await firestore().collection('users').doc(user.uid).get();
-          if (userDoc.exists()) {
-            // Assuming the role is stored in the 'users' collection
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email,
-              ...userDoc.data(),
-            });
-          } else {
-            // If user document doesn't exist, ensure currentUser is null or handle accordingly
-            setCurrentUser(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          // Optionally, alert the user or navigate to login
-          setCurrentUser(null);
-        }
-      } else {
-        setCurrentUser(null);
-      }
-    });
-
     const unsubscribe = subscribeToProductGroups((groups) => {
       setProductGroups(groups);
       setLoading(false);
@@ -50,7 +25,6 @@ const HomeScreen = ({ navigation }) => {
     });
 
     return () => {
-      unsubscribeAuth();
       unsubscribe();
     };
   }, []);
@@ -198,7 +172,7 @@ const HomeScreen = ({ navigation }) => {
 
         <View style={styles.userInfo}>
           <Text style={styles.subtitle}>
-            Welcome, {currentUser?.displayName || currentUser?.name || currentUser?.email}
+            Welcome, {currentUser?.displayName || currentUser?.name || currentUser?.email?.split('@')[0] || 'User'}
           </Text>
           <Text style={styles.roleText}>
             Role: {isAdmin() ? 'Administrator' : 'User'}

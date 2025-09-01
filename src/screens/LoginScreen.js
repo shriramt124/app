@@ -37,12 +37,15 @@ const LoginScreen = ({ navigation }) => {
   const handleAdminLogin = async () => {
     setLoading(true);
     try {
+      console.log('Attempting admin login...');
       const userCredential = await auth().signInWithEmailAndPassword('shriramt.124@gmail.com', '198118113Ram@');
       const user = userCredential.user;
+      console.log('Admin login successful, user:', user.email);
       
       // Check if user exists in firestore and is admin
       const userDoc = await firestore().collection('users').doc(user.uid).get();
       if (!userDoc.exists) {
+        console.log('Admin document does not exist, creating...');
         // If admin doesn't exist in firestore, create the document
         await firestore().collection('users').doc(user.uid).set({
           uid: user.uid,
@@ -53,8 +56,22 @@ const LoginScreen = ({ navigation }) => {
           createdAt: new Date().toISOString(),
           isInitialAdmin: true,
         });
+        console.log('Admin document created');
+      } else {
+        console.log('Admin document exists:', userDoc.data());
+        // Ensure the role is set to admin
+        const userData = userDoc.data();
+        if (userData.role !== 'admin') {
+          console.log('Updating user role to admin');
+          await firestore().collection('users').doc(user.uid).update({
+            role: 'admin',
+            name: 'Administrator',
+            displayName: 'Administrator',
+          });
+        }
       }
       
+      console.log('Navigating to Home...');
       navigation.replace('Home');
     } catch (error) {
       console.error('Admin login error:', error);

@@ -5,34 +5,16 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { subscribeToProductById } from '../services/firebaseService';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import { useAuth } from '../context/AuthContext'; // Added import for AuthContext
+import { useAuth } from '../context/AuthContext';
+import { subscribeToProductById } from '../services/firebaseService'; // Added import for AuthContext
 
 const ProductDetailScreen = ({ route, navigation }) => {
   const { productId } = route.params;
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
-  const { isAdmin } = useAuth(); // Assuming isAdmin function is available from AuthContext
+  const { currentUser, isAdmin } = useAuth();
 
   useEffect(() => {
-    // Get current user info
-    const unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
-      if (user) {
-        try {
-          const userDoc = await firestore().collection('users').doc(user.uid).get();
-          if (userDoc.exists()) {
-            setCurrentUser({
-              uid: user.uid,
-              email: user.email,
-              ...userDoc.data(),
-            });
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-        }
-      }
-    });
-
     // Set up real-time listener for product details
     const unsubscribe = subscribeToProductById(productId, (productData) => {
       setProduct(productData);
@@ -44,7 +26,6 @@ const ProductDetailScreen = ({ route, navigation }) => {
 
     // Clean up listener on component unmount
     return () => {
-      unsubscribeAuth();
       unsubscribe();
     };
   }, [productId, navigation]);
