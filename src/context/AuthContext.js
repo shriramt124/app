@@ -92,11 +92,12 @@ export const AuthProvider = ({ children }) => {
     loading,
     isAdmin, // Exporting the isAdmin check
     logout, // Exporting the logout function
+    setUser, // For external user updates if needed
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children} {/* Render children only when loading is false */}
+      {children}
     </AuthContext.Provider>
   );
 };
