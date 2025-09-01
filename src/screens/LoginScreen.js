@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { loginUser } from '../services/firebaseService';
+import { loginUser, checkUserRole } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
@@ -35,18 +35,27 @@ const LoginScreen = ({ navigation }) => {
     try {
       const result = await loginUser(email, password);
       if (result.success) {
-        // Check if user role matches login type
-        if (loginType === 'admin' && result.user.role !== 'admin') {
-          Alert.alert('Access Denied', 'You do not have admin privileges');
-          return;
-        }
+        // Get user data from Firestore to check role
+        const roleResult = await checkUserRole(result.user.uid);
         
-        Alert.alert('Success', `Welcome ${result.user.role === 'admin' ? 'Admin' : 'User'}!`, [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Home'),
-          },
-        ]);
+        if (roleResult.success) {
+          const userRole = roleResult.role;
+          
+          // Check if user role matches login type
+          if (loginType === 'admin' && userRole !== 'admin') {
+            Alert.alert('Access Denied', 'You do not have admin privileges');
+            return;
+          }
+          
+          Alert.alert('Success', `Welcome ${userRole === 'admin' ? 'Admin' : 'User'}!`, [
+            {
+              text: 'OK',
+              onPress: () => navigation.replace('Home'),
+            },
+          ]);
+        } else {
+          Alert.alert('Error', 'Could not verify user role');
+        }
       } else {
         Alert.alert('Error', result.error);
       }
