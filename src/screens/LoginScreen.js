@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { loginUser, checkUserRole } from '../services/firebaseService';
+import { loginUser, checkUserRole, createInitialAdmin } from '../services/firebaseService';
 import { useAuth } from '../context/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
@@ -12,6 +12,18 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [loginType, setLoginType] = useState('user'); // 'admin' or 'user'
   const { currentUser } = useAuth();
+
+  // Create initial admin user when component mounts
+  useEffect(() => {
+    const initializeAdmin = async () => {
+      try {
+        await createInitialAdmin();
+      } catch (error) {
+        console.log('Admin initialization error:', error);
+      }
+    };
+    initializeAdmin();
+  }, []);
 
   const handleAdminLogin = () => {
     setLoginType('admin');
@@ -54,12 +66,13 @@ const LoginScreen = ({ navigation }) => {
             },
           ]);
         } else {
-          Alert.alert('Error', 'Could not verify user role');
+          Alert.alert('Error', `Could not verify user role: ${roleResult.error || 'Unknown error'}`);
         }
       } else {
         Alert.alert('Error', result.error);
       }
     } catch (error) {
+      console.error('Login error:', error);
       Alert.alert('Error', error.message);
     } finally {
       setLoading(false);

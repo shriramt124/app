@@ -299,95 +299,82 @@ export const createInitialAdmin = async () => {
     const adminEmail = 'shriramt.124@gmail.com';
     const adminPassword = '198118113Ram@';
     
-    // Check if admin already exists in firestore
-    const adminQuery = await firestore()
-      .collection('users')
-      .where('email', '==', adminEmail)
-      .get();
-    
-    if (!adminQuery.empty) {
-      console.log('Admin user already exists in Firestore');
-      return { success: true, message: 'Admin user already exists' };
-    }
-
-    // Store current auth state to restore later
-    const currentUser = auth().currentUser;
-    
+    // First, try to sign in to check if user exists in Firebase Auth
     try {
-      // Try to create admin user with exact credentials
-      const userCredential = await auth().createUserWithEmailAndPassword(adminEmail, adminPassword);
-      const user = userCredential.user;
+      const signInResult = await auth().signInWithEmailAndPassword(adminEmail, adminPassword);
+      const user = signInResult.user;
       
-      // Add admin details to Firestore
-      await firestore().collection('users').doc(user.uid).set({
-        uid: user.uid,
-        name: 'Administrator',
-        displayName: 'Administrator',
-        email: adminEmail,
-        role: 'admin',
-        createdAt: new Date().toISOString(),
-        isInitialAdmin: true,
-      });
+      // Check if Firestore document exists
+      const userDoc = await firestore().collection('users').doc(user.uid).get();
       
-      // Sign out the newly created admin
+      if (!userDoc.exists) {
+        // Create Firestore document for existing auth user
+        await firestore().collection('users').doc(user.uid).set({
+          uid: user.uid,
+          name: 'Administrator',
+          displayName: 'Administrator',
+          email: adminEmail,
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          isInitialAdmin: true,
+        });
+        console.log('Admin Firestore document created');
+      } else {
+        // Update role to admin if it's not already
+        const userData = userDoc.data();
+        if (userData.role !== 'admin') {
+          await firestore().collection('users').doc(user.uid).update({
+            role: 'admin',
+            isInitialAdmin: true,
+            lastUpdated: new Date().toISOString(),
+          });
+          console.log('User role updated to admin');
+        } else {
+          console.log('Admin user already exists and configured correctly');
+        }
+      }
+      
+      // Sign out the admin user
       await auth().signOut();
       
-      console.log('Admin user created successfully');
-      return { success: true, message: 'Admin user created successfully' };
+      return { success: true, message: 'Admin user verified/created successfully' };
       
-    } catch (authError) {
-      if (authError.code === 'auth/email-already-in-use') {
+    } catch (signInError) {
+      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password') {
+        // User doesn't exist in Auth, create them
         try {
-          console.log('Admin exists in auth, checking Firestore document...');
+          const userCredential = await auth().createUserWithEmailAndPassword(adminEmail, adminPassword);
+          const user = userCredential.user;
           
-          // Sign in temporarily to get the user ID
-          const signInResult = await auth().signInWithEmailAndPassword(adminEmail, adminPassword);
-          const user = signInResult.user;
+          // Add admin details to Firestore
+          await firestore().collection('users').doc(user.uid).set({
+            uid: user.uid,
+            name: 'Administrator',
+            displayName: 'Administrator',
+            email: adminEmail,
+            role: 'admin',
+            createdAt: new Date().toISOString(),
+            isInitialAdmin: true,
+          });
           
-          // Check if Firestore document exists
-          const userDoc = await firestore().collection('users').doc(user.uid).get();
-          
-          if (!userDoc.exists) {
-            // Create Firestore document for existing auth user
-            await firestore().collection('users').doc(user.uid).set({
-              uid: user.uid,
-              name: 'Administrator',
-              displayName: 'Administrator',
-              email: adminEmail,
-              role: 'admin',
-              createdAt: new Date().toISOString(),
-              isInitialAdmin: true,
-            });
-            console.log('Admin Firestore document created');
-          } else {
-            // Update role to admin if it's not already
-            const userData = userDoc.data();
-            if (userData.role !== 'admin') {
-              await firestore().collection('users').doc(user.uid).update({
-                role: 'admin',
-                isInitialAdmin: true,
-              });
-              console.log('User role updated to admin');
-            }
-          }
-          
-          // Sign out
+          // Sign out the newly created admin
           await auth().signOut();
           
-          return { success: true, message: 'Admin user setup completed' };
+          console.log('Admin user created successfully');
+          return { success: true, message: 'Admin user created successfully' };
           
-        } catch (firestoreError) {
-          console.error('Error setting up admin in Firestore:', firestoreError);
-          return { success: false, error: 'Failed to setup admin in database: ' + firestoreError.message };
+        } catch (createError) {
+          console.error('Error creating admin user:', createError);
+          return { success: false, error: 'Failed to create admin user: ' + createError.message };
         }
       } else {
-        console.error('Error creating admin user:', authError);
-        return { success: false, error: authError.message };
+        console.error('Unexpected sign-in error:', signInError);
+        return { success: false, error: 'Sign-in error: ' + signInError.message };
       }
     }
   } catch (error) {
     console.error('Unexpected error in createInitialAdmin:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: 'Unexpected error: ' + error.message };
   }
 };
 
