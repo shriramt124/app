@@ -178,7 +178,7 @@ const ProductDetailScreen = ({ route, navigation }) => {
                   <Text style={styles.stockCardLabel}>Cartons</Text>
                 </View>
               </View>
-            </div>
+            </View>
 
             {/* Product Details */}
             <View style={styles.section}>
